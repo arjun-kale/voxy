@@ -1,0 +1,13 @@
+[speech]
+model_path = "/home/arjun/.local/share/vosk/vosk-model-small-en-us-0.15"
+sample_rate = 16000
+blocksize = 4000
+device = ""
+
+[input]
+backend = "auto"
+append_space = true
+
+[service]
+socket_path = ""
+notifications = true
