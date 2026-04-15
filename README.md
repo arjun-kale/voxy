@@ -1,6 +1,6 @@
-# Voice Input
+# Voice Input System for Linux PCs
 
-`voice-input` is a local voice-to-text daemon for Linux desktops. It listens on demand, transcribes speech with Vosk, and types the result into the currently focused application.
+`Voxy` is a local voice-to-text daemon for Linux desktops. It listens on demand, transcribes speech with Vosk, and types the result into the currently focused application.
 
 The project is designed around a simple workflow: run the daemon in the background, bind `voice-input toggle` to a shortcut, speak, and toggle again to stop.
 
