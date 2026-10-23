@@ -1,4 +1,4 @@
-"""Local voice input daemon."""
+"""Voxy: offline voice typing for Linux."""
 
 __all__ = ["__version__"]
 

@@ -1,13 +1,46 @@
+# Voxy settings. Edit here or from the Settings window.
+
 [speech]
-model_path = "/home/arjun/.local/share/vosk/vosk-model-small-en-us-0.15"
+model_path = "~/.local/share/vosk/vosk-model-small-en-us-0.15"
 sample_rate = 16000
-blocksize = 4000
+blocksize = 1600
 device = ""
 
 [input]
 backend = "auto"
 append_space = true
 
+[text]
+auto_capitalize = true
+spoken_punctuation = true
+remove_fillers = true
+voice_commands = true
+
+[behavior]
+sounds = true
+auto_stop_seconds = 20
+history = true
+history_limit = 1000
+
+[appearance]
+theme = "system"
+accent = "#7C5CFF"
+overlay = true
+overlay_position = "bottom"
+live_text = true
+
 [service]
 socket_path = ""
 notifications = true
+
+[shortcut]
+toggle = "<Control><Alt>space"
+
+[app]
+onboarded = false
+
+[text.replacements]
+"voxy" = "Voxy"
+
+[text.snippets]
+"my email" = "you@example.com"

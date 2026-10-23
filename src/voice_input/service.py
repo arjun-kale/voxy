@@ -2,105 +2,69 @@ from __future__ import annotations
 
 import asyncio
 import signal
-import threading
+from typing import Callable
 
 from .config import AppConfig, load_config
+from .engine import VoiceEngine
 from .ipc import CommandServer
 from .notifier import DesktopNotifier
-from .speech import StreamingSpeechRecognizer
-from .typing_backends import SinkSelection, build_sink, normalize_text
 
 
-class VoiceInputDaemon:
-    def __init__(self, config: AppConfig) -> None:
-        self.config = config
-        self.active = False
-        self.partial_text = ""
-        self.lock = threading.Lock()
-        self.notifier = DesktopNotifier(enabled=config.service.notifications)
-        self.sink_selection: SinkSelection = build_sink(
-            config.input.backend,
-            notifier=self.notifier,
-        )
-        self.recognizer = StreamingSpeechRecognizer(
-            config=config.speech,
-            on_partial=self._handle_partial,
-            on_final=self._handle_final,
-        )
-        self.server = CommandServer(config.service.socket_path, self._handle_command)
-        self.shutdown_event = asyncio.Event()
+ExtraActions = dict[str, Callable[[], None]]
 
-    async def start(self) -> None:
-        self.recognizer.start()
-        await self.server.start()
-        self.notifier.show(
-            "Voice Input",
-            f"Daemon ready using {self.sink_selection.sink.name}",
-        )
 
-    async def close(self) -> None:
-        self.recognizer.close()
-        await self.server.close()
+def make_command_handler(engine: VoiceEngine, extra: ExtraActions | None = None):
+    extra = extra or {}
 
-    def set_active(self, active: bool) -> None:
-        with self.lock:
-            self.active = active
-            self.partial_text = ""
-            self.recognizer.set_active(active)
-
-        state = "Listening" if active else "Stopped"
-        self.notifier.show("Voice Input", state)
-
-    def _handle_partial(self, text: str) -> None:
-        with self.lock:
-            self.partial_text = text
-
-    def _handle_final(self, text: str) -> None:
-        normalized = normalize_text(text, append_space=self.config.input.append_space)
-        if not normalized:
-            return
-        try:
-            self.sink_selection.sink.send(normalized)
-        except Exception as exc:  # pragma: no cover - runtime integration failure
-            self.notifier.show("Voice Input", f"Text injection failed: {exc}")
-
-    async def _handle_command(self, payload: dict[str, object]) -> dict[str, object]:
+    async def handle(payload: dict[str, object]) -> dict[str, object]:
         action = str(payload.get("action", ""))
-
         if action == "toggle":
-            self.set_active(not self.active)
+            engine.toggle()
         elif action == "start":
-            self.set_active(True)
+            engine.set_listening(True)
         elif action == "stop":
-            self.set_active(False)
+            engine.set_listening(False)
         elif action == "status":
             pass
+        elif action in extra:
+            extra[action]()
         else:
             return {"ok": False, "error": f"Unknown action: {action}"}
+        return engine.status()
 
-        return {
-            "ok": True,
-            "active": self.active,
-            "partial": self.partial_text,
-            "backend": self.sink_selection.sink.name,
-            "backend_reason": self.sink_selection.reason,
-            "socket_path": self.config.service.socket_path,
-            "model_path": self.config.speech.model_path,
-        }
-
-    async def run_forever(self) -> None:
-        loop = asyncio.get_running_loop()
-
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self.shutdown_event.set)
-
-        await self.shutdown_event.wait()
+    return handle
 
 
-async def run_daemon(config_path: str | None = None) -> None:
-    daemon = VoiceInputDaemon(load_config(config_path))
-    await daemon.start()
+def attach_notifications(engine: VoiceEngine, notifier: DesktopNotifier) -> None:
+    def on_event(event: str, payload: object) -> None:
+        if event == "listening":
+            active = payload["active"]  # type: ignore[index]
+            notifier.show("Voxy", "Listening…" if active else "Stopped")
+        elif event == "notice":
+            notifier.show("Voxy", payload["message"])  # type: ignore[index]
+        elif event == "state" and payload == "needs_model":
+            notifier.show("Voxy", "No speech model yet. Run `voice-input models download`.")
+
+    engine.subscribe(on_event)
+
+
+async def run_daemon(config_path: str | None = None, config: AppConfig | None = None) -> None:
+    config = config or load_config(config_path)
+    engine = VoiceEngine(config)
+    if config.service.notifications:
+        attach_notifications(engine, DesktopNotifier())
+
+    server = CommandServer(config.service.socket_path, make_command_handler(engine))
+    engine.start()
+    await server.start()
+
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop.set)
+
     try:
-        await daemon.run_forever()
+        await stop.wait()
     finally:
-        await daemon.close()
+        engine.close()
+        await server.close()

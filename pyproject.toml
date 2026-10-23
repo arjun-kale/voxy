@@ -4,16 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voice-input"
-version = "0.1.0"
-description = "Local real-time voice-to-text input daemon for Linux desktops"
+version = "0.2.0"
+description = "Voxy: private, offline voice typing for Linux desktops"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "sounddevice>=0.4.7",
   "vosk>=0.3.45",
+  "PySide6-Essentials>=6.6",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
 [project.scripts]
+voxy = "voice_input.__main__:main"
 voice-input = "voice_input.__main__:main"
 
 [tool.setuptools]
@@ -21,3 +26,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

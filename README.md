@@ -1,102 +1,67 @@
-# Voice Input System for Linux PCs
+# Voxy
 
-`Voxy` is a local voice-to-text daemon for Linux desktops. It listens on demand, transcribes speech with Vosk, and types the result into the currently focused application.
+Offline voice typing for Linux. Voxy transcribes speech locally with [Vosk](https://alphacephei.com/vosk/) and types the result into the focused window.
 
-The project is designed around a simple workflow: run the daemon in the background, bind `voice-input toggle` to a shortcut, speak, and toggle again to stop.
+![Overlay](docs/screenshots/overlay.png)
+
+| | |
+| --- | --- |
+| ![Home](docs/screenshots/home.png) | ![Setup](docs/screenshots/setup.png) |
+| ![Voice commands](docs/screenshots/commands.png) | ![Settings](docs/screenshots/settings.png) |
+
+## Install
+
+```bash
+git clone https://github.com/arjun-kale/voxy.git
+cd voxy
+./scripts/install.sh
+```
+
+The script installs the system packages (apt, dnf or pacman), creates a virtualenv in `~/.local/share/voxy`, links `voxy` into `~/.local/bin`, adds a desktop entry and starts the app. Use `--no-system` to skip the package step.
+
+On first launch a setup window downloads a speech model, tests the microphone and sets the global shortcut (default <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>). The shortcut is registered automatically on GNOME; on other desktops, bind `voxy toggle` yourself.
 
 ## Features
 
-- local, offline speech recognition with `vosk`
-- low-latency streaming transcription
-- background daemon with `daemon`, `toggle`, `start`, `stop`, and `status` commands
-- text injection with `wtype` on Wayland and `xdotool` on X11
-- clipboard fallback when direct typing is unavailable
-- audio capture through `sounddevice`, with `arecord` fallback
-
-## Installation
-
-Install system dependencies on Ubuntu:
-
-```bash
-sudo apt update
-sudo apt install -y python3-venv portaudio19-dev wl-clipboard wtype
-```
-
-If you use X11, install `xdotool` instead of `wtype`.
-
-Create a virtual environment and install the project:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -U pip
-pip install -e .
-```
-
-Download a Vosk model, for example `vosk-model-small-en-us-0.15`, and place it in a local directory such as:
-
-```text
-~/.local/share/vosk/vosk-model-small-en-us-0.15
-```
-
-Then create a config file:
-
-```bash
-mkdir -p ~/.config/voice-input
-cp config.example.toml ~/.config/voice-input/config.toml
-```
-
-Update `model_path` in the config if needed.
+- Tray icon, main window and a floating bar with waveform and live transcript while dictating
+- Automatic capitalisation, spoken punctuation ("comma", "period", "new paragraph", quotes, brackets) and filler-word removal
+- Voice commands: "scratch that", "press enter", "send it", "press tab", "undo", "redo", "select all", "stop listening"
+- Word replacements and snippets ("insert my email")
+- Searchable history with copy and re-type
+- Stops after a configurable period of silence
+- The microphone is only open while dictating
+- Typing backend chosen per session (`wtype`, `xdotool`, `ydotool`), with clipboard fallback
+- Health check page and `voxy doctor`
+- 16 languages; models are downloaded from the app or the CLI
 
 ## Usage
 
-Start the daemon:
-
 ```bash
-. .venv/bin/activate
-voice-input daemon
+voxy                    # open the app
+voxy app --background   # start in the tray
+voxy toggle             # start/stop dictation
+voxy start | stop | status | show
+voxy doctor             # check dependencies
+voxy models list
+voxy models download vosk-model-small-hi-0.22
+voxy daemon             # headless, no GUI
 ```
 
-Toggle listening:
+`voice-input` is kept as an alias.
 
-```bash
-voice-input toggle
-```
+## Configuration
 
-Available commands:
-
-```bash
-voice-input daemon
-voice-input toggle
-voice-input start
-voice-input stop
-voice-input status
-```
-
-## Shortcut Setup
-
-Bind your desktop shortcut to:
-
-```bash
-voice-input toggle
-```
-
-This works well for a push-to-dictate workflow on Linux desktops.
-
-## Systemd User Service
-
-An example unit is included in `systemd/voice-input.service`.
-
-```bash
-mkdir -p ~/.config/systemd/user
-cp systemd/voice-input.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now voice-input.service
-```
+Settings are stored in `~/.config/voice-input/config.toml`. All options are listed in [`config.example.toml`](config.example.toml).
 
 ## Notes
 
-- recognition speed is prioritized over maximum accuracy
-- punctuation support is basic unless spoken explicitly
-- Wayland support is best when `wtype` is installed
-- the project keeps hotkey management in the desktop environment instead of implementing global shortcuts itself
+- GNOME on Wayland does not support `wtype`. Install `ydotool` and enable its service for direct typing; otherwise text goes to the clipboard.
+- On Wayland the app runs through XWayland so the floating bar can stay on top. Set `VOXY_NATIVE_WAYLAND=1` to disable this.
+- `systemd/voice-input.service` runs the headless daemon as a user service.
+
+## Development
+
+```bash
+pip install -e '.[test]'
+pytest
+```

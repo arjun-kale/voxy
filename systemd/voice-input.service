@@ -1,14 +1,16 @@
+# Headless alternative to the desktop app (which starts itself at login).
+# Install with: cp systemd/voice-input.service ~/.config/systemd/user/ &&
+#   systemctl --user enable --now voice-input.service
 [Unit]
-Description=Local voice input daemon
+Description=Voxy voice typing (headless)
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/dev/Personal/voice
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/dev/Personal/voice/.venv/bin/voice-input --config %h/.config/voice-input/config.toml daemon
+ExecStart=%h/.local/bin/voxy daemon
 Restart=on-failure
 RestartSec=2
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

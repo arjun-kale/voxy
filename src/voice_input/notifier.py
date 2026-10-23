@@ -13,7 +13,7 @@ class DesktopNotifier:
         if not self._binary:
             return
         subprocess.Popen(
-            [self._binary, title, body],
+            [self._binary, "--app-name=Voxy", "--icon=audio-input-microphone", title, body],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
